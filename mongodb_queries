@@ -1,0 +1,9 @@
+db.mybudget.insertMany([
+    { label: "Groceries", budget: 300, color : "#98abc5" },
+    { label: "Tuition", budget: 1000, color: "#8a89a6" },
+    { label: "Travel", budget: 150, color: "#7b6888" },
+    { label: "Home", budget: 2000, color: "#6b486b" },
+    { label: "Shopping", budget: 100, color: "#a05d56" },
+    { label: "Bills", budget: 900, color: "#d0743c" },
+    { label: "Loans", budget: 200, color: "#ff8c00" }
+])

@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personal Budget</title>
+    <link rel="stylesheet" href="/css/reset.css">
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/css/d3js.css">
+</head>
+<body>
+    <ul class="skip-links">
+        <li><a href="#main">Skip link to main</a></li>
+        <li><a href="#nav">Skip link to navigation</a></li>
+    </ul>
+    <div class="menu">
+        <nav role="navigation" id="nav">
+            <ul> 
+                <li><a href="index.html">Home</a></li>
+                <li><a href="about.html">About</a></li>
+                <li><a href="login.html">Login</a></li>
+                <li><a href="https://google.com">Google</a></li>
+            </ul>
+        </nav>
+    </div>
+    <!-- This is an A11y Change, added title to background-image as alternative text-->
+    <div class="hero" title="Cellphone and Laptop">
+        <h1>Personal Budget</h1>
+        <h2>A personal-budget management app</h2>
+    </div>
+    <main id="main">
+        <div class="container center">
+
+            <div class="page-area">
+                    <!-- This is a Semantic HTML Change, bold-->
+                    <p>
+                        <canvas id="pieChart" width="400" height="400"></canvas>
+                    </p>
+                <!-- This is a Semantic HTML Change, removed duplicate sections  -->
+            </div>
+        </div>
+    </main>
+    <div class="bottom">
+        <footer class="center">All rights reserved &copy; Fabio Nolasco</footer>  
+    </div>
+    <!-- This is a Semantic HTML Change, footer -->
+    
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.20.0/axios.min.js" integrity="sha512-quHCp3WbBNkwLfYUMd+KwBAgpVukJu5MncuQaWXgCrfgcxCJAq/fo+oqrRKOj+UKEmyMCG3tb8RB63W+EmrOBg==" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.3/Chart.min.js" integrity="sha512-s+xg36jbIujB2S2VKfpGmlC3T5V2TF3lY48DX7u2r9XzGzgPsa6wTpOQA7J9iffvdeBN0q9tKzRxVxw1JviZPg==" crossorigin="anonymous"></script>
+    <script src="https://d3js.org/d3.v3.min.js"></script>
+    <script>
+
+        var svg = d3.select("body")
+            .append("svg")
+            .append("g")
+
+        svg.append("g")
+            .attr("class", "slices");
+        svg.append("g")
+            .attr("class", "labels");
+        svg.append("g")
+            .attr("class", "lines");
+
+        var width = 400,
+            height = 400,
+            radius = Math.min(width, height) / 2;
+
+        var pie = d3.layout.pie()
+            .sort(null)
+            .value(function(d) {
+                return d.value;
+            });
+
+        var arc = d3.svg.arc()
+            .outerRadius(radius * 0.8)
+            .innerRadius(radius * 0.4);
+
+        var outerArc = d3.svg.arc()
+            .innerRadius(radius * 0.9)
+            .outerRadius(radius * 0.9);
+
+        svg.attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
+
+        var key = function(d){ return d.data.label; };
+
+        var budget_labels = [];
+        var budget_values = [];
+        var myBudget_dict = {};
+
+        var dataSource = {
+            datasets: [{
+                data: [],
+                backgroundColor: [],
+            }],
+            labels: []
+        };
+
+        function createChart() {
+            var ctx = document.getElementById("pieChart").getContext("2d");
+            var myPieChart = new Chart(ctx, {
+                type: 'pie',
+                data: dataSource
+            });
+        }
+
+        function main() {
+            axios.get('/budget').then(function(res){
+                console.log(res);
+                for (var i = 0; i < res.data.length; i++){
+                    budget_values.push(res.data[i].budget);
+                    budget_labels.push(res.data[i].label);
+                    myBudget_dict[String(res.data[i].label)] = res.data[i].budget;
+                    dataSource.datasets[0].data.push(res.data[i].budget);
+                    dataSource.datasets[0].backgroundColor.push(res.data[i].color);
+                    dataSource.labels.push(res.data[i].label);
+                }
+                createChart();
+                var color = d3.scale.ordinal()
+                    .domain(budget_labels)
+                    .range(["#98abc5", "#8a89a6", "#7b6888", "#6b486b", "#a05d56", "#d0743c", "#ff8c00"]);
+
+                function randomData (){
+                    var labels = color.domain();
+                    return labels.map(function(label){
+                        return { label: label, value: myBudget_dict[label] }
+                    });
+                }
+                change(randomData());
+
+                function change(data) {
+                    /* ------- PIE SLICES -------*/
+                    var slice = svg.select(".slices").selectAll("path.slice")
+                        .data(pie(data), key);
+
+                    slice.enter()
+                        .insert("path")
+                        .style("fill", function(d) { return color(d.data.label); })
+                        .attr("class", "slice");
+
+                    slice		
+                        .transition().duration(1000)
+                        .attrTween("d", function(d) {
+                            this._current = this._current || d;
+                            var interpolate = d3.interpolate(this._current, d);
+                            this._current = interpolate(0);
+                            return function(t) {
+                                return arc(interpolate(t));
+                            };
+                        })
+
+                    slice.exit()
+                        .remove();
+
+                    /* ------- TEXT LABELS -------*/
+
+                    var text = svg.select(".labels").selectAll("text")
+                        .data(pie(data), key);
+
+                    text.enter()
+                        .append("text")
+                        .attr("dy", ".35em")
+                        .text(function(d) {
+                            return d.data.label;
+                        });
+                    
+                    function midAngle(d){
+                        return d.startAngle + (d.endAngle - d.startAngle)/2;
+                    }
+
+                    text.transition().duration(1000)
+                        .attrTween("transform", function(d) {
+                            this._current = this._current || d;
+                            var interpolate = d3.interpolate(this._current, d);
+                            this._current = interpolate(0);
+                            return function(t) {
+                                var d2 = interpolate(t);
+                                var pos = outerArc.centroid(d2);
+                                pos[0] = radius * (midAngle(d2) < Math.PI ? 1 : -1);
+                                return "translate("+ pos +")";
+                            };
+                        })
+                        .styleTween("text-anchor", function(d){
+                            this._current = this._current || d;
+                            var interpolate = d3.interpolate(this._current, d);
+                            this._current = interpolate(0);
+                            return function(t) {
+                                var d2 = interpolate(t);
+                                return midAngle(d2) < Math.PI ? "start":"end";
+                            };
+                        });
+
+                    text.exit()
+                        .remove();
+
+                    /* ------- SLICE TO TEXT POLYLINES -------*/
+                    var polyline = svg.select(".lines").selectAll("polyline")
+                        .data(pie(data), key);
+                    
+                    polyline.enter()
+                        .append("polyline");
+
+                    polyline.transition().duration(1000)
+                        .attrTween("points", function(d){
+                            this._current = this._current || d;
+                            var interpolate = d3.interpolate(this._current, d);
+                            this._current = interpolate(0);
+                            return function(t) {
+                                var d2 = interpolate(t);
+                                var pos = outerArc.centroid(d2);
+                                pos[0] = radius * 0.95 * (midAngle(d2) < Math.PI ? 1 : -1);
+                                return [arc.centroid(d2), outerArc.centroid(d2), pos];
+                            };			
+                        });
+                    
+                    polyline.exit()
+                        .remove();
+                };
+                
+            });        
+        }
+        main();
+    </script>    
+</body>
+</html>
